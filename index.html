@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학생 평가 프로그램</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f6fa;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 400px;
+        }
+        h2 { margin-top: 0; color: #2f3640; }
+        
+        button {
+            font-size: 16px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* 시작하기 버튼 (중간에 크게) */
+        .btn-start {
+            font-size: 24px;
+            padding: 20px 40px;
+            background-color: #4cd137;
+            color: white;
+        }
+        .btn-start:hover { background-color: #44bd32; }
+
+        /* 입력 폼 스타일 */
+        .form-group {
+            text-align: middle;
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #353b48;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #c8d6e5;
+            border-radius: 4px;
+            font-size: 15px;
+        }
+
+        /* 다시 / 끝내기 / 선택 버튼들 */
+        .btn-retry { background-color: #00a8ff; color: white; font-size: 18px; padding: 15px; }
+        .btn-retry:hover { background-color: #0097e6; }
+        .btn-end { background-color: #ea2027; color: white; font-size: 18px; padding: 15px; }
+        .btn-end:hover { background-color: #ee5253; }
+        .btn-submit { background-color: #2f3542; color: white; font-weight: bold; }
+        .btn-submit:hover { background-color: #57606f; }
+
+        /* 스테이지 제어 */
+        .stage { display: none; }
+        .stage.active { display: block; }
+        
+        .msg { font-size: 18px; margin-bottom: 20px; font-weight: bold; line-height: 1.5; }
+        
+        /* 웹 내부에 띄워줄 평균 평점 결과 박스 */
+        .average-result-box {
+            background-color: #f1f2f6;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #2f3542;
+            border: 1px dashed #ced6e0;
+        }
+
+        /* 랜덤 코멘트 박스 (끝내기 밑에 위치) */
+        .random-comment-box {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-left: 5px solid #00a8ff;
+            text-align: left;
+            font-size: 14px;
+            color: #333;
+            display: none;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="stage1" class="stage active">
+            <button class="btn-start" onclick="nextStage(2)">시작하기</button>
+        </div>
+
+        <div id="stage2" class="stage">
+            <h2>학생 정보 입력</h2>
+            <div class="form-group">
+                <label>학생 이름</label>
+                <input type="text" id="inputName" placeholder="예: 홍길동">
+            </div>
+            <div class="form-group">
+                <label>학년 (정수)</label>
+                <input type="number" id="inputGrade" placeholder="예: 3 (꼭 1, 2, 3 중에 하나만)" min="1" max="3">
+            </div>
+            <div class="form-group">
+                <label>난이도 (정수)</label>
+                <input type="number" id="inputDifficulty" placeholder="(매우 어려움:1 어려움:2 보통:3 쉬움:4 매우 쉬움:5)" min="1" max="5">
+            </div>
+            <div class="form-group">
+                <label>코멘트</label>
+                <input type="text" id="inputComment" placeholder="예: 이번시험은 어렵더라구요">
+            </div>
+            <button class="btn-submit" onclick="processInput()">입력 완료</button>
+        </div>
+
+        <div id="stage3" class="stage">
+            <div class="msg" style="color: #4cd137;">✔ 수고하셨습니다!</div>
+            <div class="msg">이번 고사의 평균 평점을 보시겠습니까?</div>
+            <button class="btn-retry" onclick="showAverage(true)">네, 보겠습니다</button>
+            <button class="btn-submit" onclick="showAverage(false)">아니요, 바로 넘어가기</button>
+        </div>
+
+        <div id="stage4" class="stage">
+            <div id="averageDisplay" class="average-result-box" style="display: none;"></div>
+
+            <div id="statusMessage" class="msg">진행을 원하시면 아래 버튼을 선택하세요.</div>
+            
+            <button id="retryBtn" class="btn-choice btn-retry" onclick="handleRetry(true)">다시하겠습니까?</button>
+            <button id="endBtn" class="btn-choice btn-end" onclick="handleRetry(false)">끝내기</button>
+            
+            <div id="randomCommentDisplay" class="random-comment-box"></div>
+        </div>
+    </div>
+
+    <script>
+        // 데이터 저장 리스트 (임시 파일 역할의 배열)
+        let virtualFile = []; 
+        let studentCount = 0;
+        let totalDifficulty = 0;
+
+        // 화면 전환용 함수
+        function nextStage(stageNum) {
+            document.querySelectorAll('.stage').forEach(stage => stage.classList.remove('active'));
+            document.getElementById(`stage${stageNum}`).classList.add('active');
+        }
+
+        // 입력 데이터 가공 및 임시 리스트에 저장
+        function processInput() {
+            let originalName = document.getElementById('inputName').value.trim();
+            let grade = parseInt(document.getElementById('inputGrade').value) || 0;
+            let difficulty = parseInt(document.getElementById('inputDifficulty').value) || 0;
+            let comment = document.getElementById('inputComment').value.trim();
+
+            if(!originalName || !comment) {
+                alert("웹 양식의 빈칸을 모두 채워주세요!");
+                return;
+            }
+
+            // 계산용 누적
+            studentCount += 1;
+            totalDifficulty += difficulty;
+
+            // 성(뒤 이름)을 OO으로 치환
+            let studentName = originalName[0] + "OO";
+
+            // 임시 리스트(파일 대체)에 누적 저장
+            let record = `${studentName}(${grade}): ${comment}`;
+            virtualFile.push(record);
+
+            // 다음 입력을 위한 폼 리셋
+            document.getElementById('inputName').value = '';
+            document.getElementById('inputGrade').value = '';
+            document.getElementById('inputDifficulty').value = '';
+            document.getElementById('inputComment').value = '';
+
+            nextStage(3); // 수고하셨습니다 스테이지로
+        }
+
+        // 평균 평점 보기 처리 (웹 내부 출력)
+        function showAverage(isView) {
+            let avgDisplay = document.getElementById('averageDisplay');
+            
+            if (isView) {
+                let average = totalDifficulty / studentCount;
+                // 알림창 팝업 대신 웹 화면의 박스 안에 글씨를 밀어 넣습니다.
+                avgDisplay.innerHTML = `📊 해당과목의 평균 평점은 <strong>${average.toFixed(2)}</strong>점 입니다.`;
+                avgDisplay.style.display = 'block';
+            } else {
+                avgDisplay.style.display = 'none';
+            }
+            
+            nextStage(4); // 다시하기 / 끝내기 스테이지로
+        }
+
+        // 반복 및 종료 핸들러
+        function handleRetry(isRetry) {
+            if (isRetry) {
+                // 다시하겠습니까 == True -> 2단계 입력 폼으로 회귀
+                document.getElementById('randomCommentDisplay').style.display = 'none';
+                nextStage(2);
+            } else {
+                // 끝내기 -> 다시하겠습니까 == False
+                
+                // 1. 임시 리스트에서 무작위 추출 후 화면에 출력
+                showRandomComment();
+
+                // 2. 상단 텍스트 변경 (10초 카운트다운 안내)
+                document.getElementById('statusMessage').innerHTML = 
+                    "<span style='color:#ea2027;'>프로그램이 종료되었습니다.<br>10초 뒤에 웹 브라우저 창이 꺼집니다.</span>";
+                
+                // 버튼 비활성화 제어
+                document.getElementById('retryBtn').style.display = 'none';
+                document.getElementById('endBtn').disabled = true;
+
+                // 3. 10초 뒤 브라우저 종료 실행
+                setTimeout(function() {
+                    window.close();
+                }, 10000);
+            }
+        }
+
+        // 임시 리스트(파일 역할)에서 무작위 데이터 가져오기
+        function showRandomComment() {
+            if (virtualFile.length > 0) {
+                let randomIndex = Math.floor(Math.random() * virtualFile.length);
+                let randomRecord = virtualFile[randomIndex];
+                
+                let displayArea = document.getElementById('randomCommentDisplay');
+                displayArea.innerHTML = `<strong>[임시 리스트 내 랜덤 추출 데이터]</strong><br>${randomRecord}`;
+                displayArea.style.display = 'block';
+            }
+        }
+    </script>
+
+</body>
+</html>
